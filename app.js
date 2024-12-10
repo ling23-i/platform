@@ -151,10 +151,7 @@ function updatePostLikes(blockchain, postData) {
     blockchain.chain[index].hash = blockchain.chain[index].calculateHash();
 
     // Recalculate hashes for subsequent blocks
-    for (let i = index + 1; i < blockchain.chain.length; i++) {
-        blockchain.chain[i].previousHash = blockchain.chain[i - 1].hash;
-        blockchain.chain[i].hash = blockchain.chain[i].calculateHash();
-    }
+    recalculateHashes(blockchain, index);
 
     return blockchain;
 }
@@ -170,10 +167,7 @@ function updatePostComments(blockchain, postData, comment) {
     blockchain.chain[index].hash = blockchain.chain[index].calculateHash();
 
     // Recalculate hashes for subsequent blocks
-    for (let i = index + 1; i < blockchain.chain.length; i++) {
-        blockchain.chain[i].previousHash = blockchain.chain[i - 1].hash;
-        blockchain.chain[i].hash = blockchain.chain[i].calculateHash();
-    }
+    recalculateHashes(blockchain, index);
 
     return blockchain;
 }
@@ -187,6 +181,13 @@ function findPostIndex(blockchain, postData) {
     return -1;
 }
 
+function recalculateHashes(blockchain, startIndex) {
+    for (let i = startIndex + 1; i < blockchain.chain.length; i++) {
+        blockchain.chain[i].previousHash = blockchain.chain[i - 1].hash;
+        blockchain.chain[i].hash = blockchain.chain[i].calculateHash();
+    }
+}
+
 function filterPostsByKeyword(keyword) {
     const blockchain = loadBlockchainFromLocalStorage();
 
@@ -197,3 +198,6 @@ function filterPostsByKeyword(keyword) {
 function generateRandomHash() {
     return CryptoJS.SHA256(Math.random().toString()).toString();
 }
+
+
+
