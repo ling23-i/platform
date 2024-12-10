@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Community Page</title>
+  <style>
+    .post { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
+    .comments { margin-left: 20px; }
+    .comment { border-top: 1px solid #eee; padding-top: 10px; }
+    input, textarea, button { display: block; width: 100%; margin-bottom: 10px; padding: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+
+    nav {
+      background-color: #333;
+      padding: 10px 0;
+    }
+
+    nav ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      justify-content: space-around;
+    }
+
+    nav ul li {
+      margin: 0 15px;
+    }
+
+    nav ul li a {
+      color: #fff;
+      text-decoration: none;
+    }
+
+    header {
+      text-align: center;
+      padding: 50px 0;
+      background-color: #fff;
+    }
+
+    header h1 {
+      font-size: 3em;
+      margin-bottom: 20px;
+    }
+
+    header p {
+      font-size: 1.2em;
+      color: #555;
+    }
+
+    footer {
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    footer p {
+      margin: 0;
+    }
+
+    form { margin-bottom: 20px; }
+    .search-form { margin-bottom: 20px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="blockchain.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<nav>
+    <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#discover">Discover</a></li>
+        <li><a href="#gallery">Gallery</a></li>
+        <li><a href="#templates">Templates</a></li>
+        <li><a href="#updates">Updates</a></li>
+    </ul>
+</nav>
+
+<header>
+    <h1>测评鸭</h1>
+    <p>基于区块链技术的测评平台</p>
+</header>
+<h1>Community</h1>
+<!-- Search Form -->
+<form id="search-form" class="search-form">
+    <input type="text" id="search-keyword" placeholder="Search by title..." required>
+    <button type="submit">Search</button>
+</form>
+
+<div id="posts"></div>
+<a href="index2.html">Back</a>
+
+<!-- 添加清除按钮 -->
+<button onclick="clearLocalStorage()">Clear LocalStorage</button>
+<script>
+function clearLocalStorage() {
+    localStorage.removeItem('blockchain');
+    alert('LocalStorage cleared!');
+    location.reload();
+}
+</script>
+<footer>
+    <p>&copy; 2023 测评鸭. All rights reserved.</p>
+</footer>
+</body>
+</html>
+
+
+
+
+

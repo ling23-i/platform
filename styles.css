@@ -1,0 +1,249 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+nav {
+    background-color: #333;
+    padding: 10px 0;
+}
+
+nav ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: space-around;
+}
+
+nav ul li {
+    margin: 0 15px;
+}
+
+nav ul li a {
+    color: #fff;
+    text-decoration: none;
+}
+
+header {
+    text-align: center;
+    padding: 50px 0;
+    background-color: #f4f4f4ff;
+}
+
+header h1 {
+    font-size: 3em;
+    margin-bottom: 20px;
+}
+
+header p {
+    font-size: 1.2em;
+    color: #555;
+}
+
+.get-started-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #333;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.get-started-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #333;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.logos {
+    display: flex;
+    justify-content: space-around;
+    padding: 20px 0;
+}
+
+.logos img {
+    width: 100px;
+    height: 100px;
+}
+
+.post-section, .community-section {
+    padding: 10px 300px 10px 300px;
+}
+
+.post-box, .community-box {
+    background-color: #f9f9f9;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+}
+
+.post-content, .community-content {
+    flex: 1;
+    margin-right: 20px;
+}
+
+.post-btn, .community-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #333;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+.post-image, .community-image {
+    width: 200px; /* 调整图片宽度 */
+    margin-left: 20px;
+    border-radius: 10px;
+}
+
+.post-image img, .community-image img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+}
+
+.faq-section {
+    padding: 25px 0;
+    text-align: center;
+    background-color: #fff;
+}
+
+.faq-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.faq-item {
+    width: 100%;
+    max-width: 1000px;
+    margin: 5px 0;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.faq-question {
+    padding: 5px;
+    background-color: #f9f9f9;
+    cursor: pointer;
+}
+
+.faq-answer {
+    padding: 5px;
+    background-color: #fff;
+}
+
+.signup-section {
+    padding: 50px 0;
+    background-color: #f4f4f4;
+    text-align: center;
+}
+
+.signup-section h2 {
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+.signup-section .get-started-btn {
+    margin-top: 20px;
+}
+
+footer {
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 20px 0;
+}
+
+footer p {
+    margin: 0;
+}
+
+/* Animations */
+.fade-in {
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.fade-in.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#faq, #signup {
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+#faq.show, #signup.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 发帖表单 */
+.post-form-section {
+    padding: 50px 0;
+    text-align: center;
+}
+
+.post-form-box {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #f9f9f9;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.post-form-box h2 {
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+.post-form-box label {
+    display: block;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.post-form-box input[type="text"],
+.post-form-box textarea,
+.post-form-box input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.post-form-box .post-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #333;
+    color: #fff;
+    text-decoration: none;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+.post-form-box .post-btn:hover {
+    background-color: #555;
+}
+
