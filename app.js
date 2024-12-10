@@ -1,6 +1,5 @@
-// app.js
 document.addEventListener('DOMContentLoaded', () => {
-    const blockchain = loadBlockchainFromLocalStorage();
+    let blockchains = loadBlockchainsFromLocalStorage();
 
     // Handle new post form submission
     const formElement = document.getElementById('new-post-form');
@@ -13,11 +12,14 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('New Post Data:', { title, content }); // Debugging line
 
             const postData = { title, content, likes: 0, comments: [], author: generateRandomHash() };
-            const newBlock = new Block(blockchain.chain.length, Date.now(), postData);
-            blockchain.addBlock(newBlock);
+            const newBlockchain = new Blockchain();
+            const newBlock = new Block(newBlockchain.chain.length, Date.now(), postData);
+            newBlockchain.addBlock(newBlock);
 
-            saveBlockchainToLocalStorage(blockchain);
-            console.log('Blockchain after adding new block:', blockchain); // Debugging line
+            blockchains[generateRandomHash()] = newBlockchain;
+            saveBlockchainsToLocalStorage(blockchains);
+
+            console.log('Blockchains after adding new post:', blockchains); // Debugging line
             alert('Post submitted successfully!');
             window.location.href = 'community.html';
         });
@@ -44,45 +46,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function loadBlockchainFromLocalStorage() {
-    const blockchainData = localStorage.getItem('blockchain');
-    let blockchain = new Blockchain();
-    if (blockchainData) {
+function loadBlockchainsFromLocalStorage() {
+    const blockchainsData = localStorage.getItem('blockchains');
+    let blockchains = {};
+    if (blockchainsData) {
         try {
-            const parsedData = JSON.parse(blockchainData);
-            blockchain.chain = parsedData.chain.map((blockData, index) => {
-                if (index === 0) {
-                    return blockchain.createGenesisBlock(); // Ensure genesis block is correctly created
-                }
-                return new Block(
-                    blockData.index,
-                    blockData.timestamp,
-                    blockData.data,
-                    '' // Initialize previousHash as empty string temporarily
-                );
-            });
+            const parsedData = JSON.parse(blockchainsData);
+            for (const key in parsedData) {
+                blockchains[key] = new Blockchain();
+                blockchains[key].chain = parsedData[key].chain.map((blockData, index) => {
+                    if (index === 0) {
+                        return blockchains[key].createGenesisBlock(); // Ensure genesis block is correctly created
+                    }
+                    return new Block(
+                        blockData.index,
+                        blockData.timestamp,
+                        blockData.data,
+                        '' // Initialize previousHash as empty string temporarily
+                    );
+                });
 
-            // Re-calculate hashes to ensure integrity
-            for (let i = 1; i < blockchain.chain.length; i++) {
-                blockchain.chain[i].previousHash = blockchain.chain[i - 1].hash;
-                blockchain.chain[i].hash = blockchain.chain[i].calculateHash();
+                // Re-calculate hashes to ensure integrity
+                for (let i = 1; i < blockchains[key].chain.length; i++) {
+                    blockchains[key].chain[i].previousHash = blockchains[key].chain[i - 1].hash;
+                    blockchains[key].chain[i].hash = blockchains[key].chain[i].calculateHash();
+                }
             }
         } catch (error) {
-            console.error('Error parsing blockchain data from localStorage:', error);
-            blockchain = new Blockchain(); // Fallback to a new blockchain
+            console.error('Error parsing blockchains data from localStorage:', error);
+            blockchains = {}; // Fallback to an empty object
         }
     }
-    return blockchain;
+    return blockchains;
 }
 
-function saveBlockchainToLocalStorage(blockchain) {
-    localStorage.setItem('blockchain', JSON.stringify(blockchain));
+function saveBlockchainsToLocalStorage(blockchains) {
+    localStorage.setItem('blockchains', JSON.stringify(blockchains));
 }
 
 function loadPosts() {
-    const blockchain = loadBlockchainFromLocalStorage();
-    console.log('Loaded Blockchain:', blockchain); // Debugging line
-    renderPosts(blockchain.chain.slice(1).map(block => block.data));
+    const blockchains = loadBlockchainsFromLocalStorage();
+    console.log('Loaded Blockchains:', blockchains); // Debugging line
+
+    const allPosts = [];
+    for (const key in blockchains) {
+        allPosts.push(blockchains[key].chain.slice(1).map(block => ({ ...block.data, blockchainKey: key })));
+    }
+
+    renderPosts(allPosts.flat());
 }
 
 function renderPosts(posts) {
@@ -96,12 +107,12 @@ function renderPosts(posts) {
         postElement.className = 'post';
 
         postElement.innerHTML = `
-            <h2>${post.title}</h2>
-            <p>${post.content}</p>
-            <p>Author: ${post.author}</p>
+            <h2>${escapeHtml(post.title)}</h2>
+            <p>${escapeHtml(post.content)}</p>
+            <p>Author: ${escapeHtml(post.author)}</p>
             <button onclick="likePost('${encodeURIComponent(JSON.stringify(post))}')">Like (${post.likes})</button>
             <div class="comments">
-                ${post.comments.map(comment => `<div class="comment">${comment}</div>`).join('')}
+                ${post.comments.map(comment => `<div class="comment">${escapeHtml(comment)}</div>`).join('')}
                 <input type="text" id="comment-input-${encodeURIComponent(JSON.stringify(post))}" placeholder="Add a comment...">
                 <button onclick="addComment('${encodeURIComponent(JSON.stringify(post))}')">Comment</button>
             </div>
@@ -113,10 +124,15 @@ function renderPosts(posts) {
 
 function likePost(encodedPostData) {
     const postData = JSON.parse(decodeURIComponent(encodedPostData));
-    const blockchain = loadBlockchainFromLocalStorage();
+    const blockchains = loadBlockchainsFromLocalStorage();
 
-    const updatedBlockchain = updatePostLikes(blockchain, postData);
-    saveBlockchainToLocalStorage(updatedBlockchain);
+    if (!blockchains[postData.blockchainKey]) {
+        console.error('Blockchain not found for the given post.');
+        return;
+    }
+
+    const updatedBlockchain = updatePostLikes(blockchains, postData.blockchainKey, postData);
+    saveBlockchainsToLocalStorage(updatedBlockchain);
 
     loadPosts();
 }
@@ -131,20 +147,26 @@ function addComment(encodedPostData) {
         return;
     }
 
-    const blockchain = loadBlockchainFromLocalStorage();
+    const blockchains = loadBlockchainsFromLocalStorage();
 
-    const updatedBlockchain = updatePostComments(blockchain, postData, commentText);
-    saveBlockchainToLocalStorage(updatedBlockchain);
+    if (!blockchains[postData.blockchainKey]) {
+        console.error('Blockchain not found for the given post.');
+        return;
+    }
+
+    const updatedBlockchain = updatePostComments(blockchains, postData.blockchainKey, postData, commentText);
+    saveBlockchainsToLocalStorage(updatedBlockchain);
 
     document.getElementById(commentInputId).value = '';
     loadPosts();
 }
 
-function updatePostLikes(blockchain, postData) {
+function updatePostLikes(blockchains, blockchainKey, postData) {
+    const blockchain = blockchains[blockchainKey];
     const index = findPostIndex(blockchain, postData);
     if (index === -1) {
         console.error('Post not found in blockchain.');
-        return blockchain;
+        return blockchains;
     }
 
     blockchain.chain[index].data.likes++;
@@ -153,14 +175,15 @@ function updatePostLikes(blockchain, postData) {
     // Recalculate hashes for subsequent blocks
     recalculateHashes(blockchain, index);
 
-    return blockchain;
+    return blockchains;
 }
 
-function updatePostComments(blockchain, postData, comment) {
+function updatePostComments(blockchains, blockchainKey, postData, comment) {
+    const blockchain = blockchains[blockchainKey];
     const index = findPostIndex(blockchain, postData);
     if (index === -1) {
         console.error('Post not found in blockchain.');
-        return blockchain;
+        return blockchains;
     }
 
     blockchain.chain[index].data.comments.push(comment);
@@ -169,7 +192,7 @@ function updatePostComments(blockchain, postData, comment) {
     // Recalculate hashes for subsequent blocks
     recalculateHashes(blockchain, index);
 
-    return blockchain;
+    return blockchains;
 }
 
 function findPostIndex(blockchain, postData) {
@@ -189,14 +212,32 @@ function recalculateHashes(blockchain, startIndex) {
 }
 
 function filterPostsByKeyword(keyword) {
-    const blockchain = loadBlockchainFromLocalStorage();
+    const blockchains = loadBlockchainsFromLocalStorage();
 
-    return blockchain.chain.slice(1).map(block => block.data)
-        .filter(post => post.title.toLowerCase().includes(keyword) || post.content.toLowerCase().includes(keyword));
+    const allPosts = [];
+    for (const key in blockchains) {
+        allPosts.push(blockchains[key].chain.slice(1).map(block => ({ ...block.data, blockchainKey: key })));
+    }
+
+    return allPosts.flat().filter(post => 
+        escapeHtml(post.title.toLowerCase()).includes(keyword) || 
+        escapeHtml(post.content.toLowerCase()).includes(keyword)
+    );
 }
 
 function generateRandomHash() {
     return CryptoJS.SHA256(Math.random().toString()).toString();
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
 
