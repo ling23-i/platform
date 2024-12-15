@@ -74,11 +74,11 @@ header p {
     height: 100px;
 }
 
-.post-section, .community-section {
+.post-section, .community-section,.first-section,.sec-section,.third-section {
     padding: 10px 300px 10px 300px;
 }
 
-.post-box, .community-box {
+.post-box, .community-box,.first-box,.sec-box,.third-box {
     background-color: #f9f9f9;
     padding: 30px;
     border-radius: 10px;
@@ -87,7 +87,7 @@ header p {
     align-items: center;
 }
 
-.post-content, .community-content {
+.first-content, .community-content,.first-content,.sec-content,.third-content {
     flex: 1;
     margin-right: 20px;
 }
@@ -246,4 +246,3 @@ footer p {
 .post-form-box .post-btn:hover {
     background-color: #555;
 }
-
