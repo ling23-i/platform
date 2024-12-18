@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const repoOwner = 'ling23-i';
-    const repoName = 'platform';
+    const repoOwner = 'ling23-i'; // Replace with your GitHub username
+    const repoName = 'platform';       // Replace with your repository name
     const accessToken = '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'; // You need to generate a personal access token with read/write access to issues.
-    
+
     let blockchains = loadBlockchainsFromLocalStorage();
 
     // Handle new post form submission
