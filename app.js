@@ -1,6 +1,3 @@
-const GITHUB_API_URL = 'https://api.github.com/repos/ling23-i/platform/issues';
-const GITHUB_TOKEN = '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'; // 替换为您的 GitHub Token
-
 document.addEventListener('DOMContentLoaded', () => {
     let blockchains = loadBlockchainsFromLocalStorage();
 
