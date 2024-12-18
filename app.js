@@ -1,7 +1,8 @@
 const GITHUB_API_URL = 'https://api.github.com/repos/ling23-i/platform/issues';
 const GITHUB_TOKEN = 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; // 替换为您的 GitHub Token
+
 document.addEventListener('DOMContentLoaded', () => {
-    loadPosts();
+    console.log('DOM fully loaded and parsed'); // Debugging line
 
     // Handle new post form submission
     const formElement = document.getElementById('new-post-form');
@@ -26,23 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     } else {
         console.error('Form element with id "new-post-form" not found.');
-    }
-
-    // Load posts on community page
-    if (window.location.pathname.includes('community.html')) {
-        loadPosts();
-    }
-
-    // Handle search form submission
-    const searchFormElement = document.getElementById('search-form');
-    if (searchFormElement) {
-        searchFormElement.addEventListener('submit', function(event) {
-            event.preventDefault();
-            const keyword = document.getElementById('search-keyword').value.toLowerCase();
-            filterPostsByKeyword(keyword);
-        });
-    } else {
-        console.error('Search form element with id "search-form" not found.');
     }
 });
 
@@ -165,7 +149,7 @@ async function likePost(issueNumber) {
         if (!updateResponse.ok) {
             const errorText = await updateResponse.text();
             console.error('Error updating issue:', updateResponse.status, errorText);
-            throw new Error(`HTTP error! status: ${updateResponse.status}, message: ${errorText}`);
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
 
         loadPosts();
@@ -236,4 +220,3 @@ async function addComment(issueNumber) {
 function generateRandomHash() {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
-
