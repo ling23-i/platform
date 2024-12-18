@@ -237,14 +237,3 @@ function generateRandomHash() {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
-
-
-
-
-
-
-
-    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-}
-
-
