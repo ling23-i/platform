@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const repoOwner = 'ling23-i';
     const repoName = 'platform';
     const accessToken = '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'; // You need to generate a personal access token with read/write access to issues.
-
+    
     let blockchains = loadBlockchainsFromLocalStorage();
 
     // Handle new post form submission
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log('New Post Data:', { title, content }); // Debugging line
 
-            createGitHubIssue(title, content);
+            createGitHubIssue(repoOwner, repoName, accessToken, title, content);
         });
     } else {
         console.error('Form element with id "new-post-form" not found.');
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load posts on community page
     if (window.location.pathname.includes('community.html')) {
-        loadPostsFromGitHub();
+        loadPostsFromGitHub(repoOwner, repoName, accessToken);
     }
 
     // Handle search form submission
@@ -32,8 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchFormElement.addEventListener('submit', function(event) {
             event.preventDefault();
             const keyword = document.getElementById('search-keyword').value.toLowerCase();
-            const filteredPosts = filterPostsByKeyword(keyword);
-            renderPosts(filteredPosts);
+            filterPostsByKeyword(repoOwner, repoName, accessToken, keyword);
         });
     } else {
         console.error('Search form element with id "search-form" not found.');
@@ -78,7 +77,7 @@ function saveBlockchainsToLocalStorage(blockchains) {
     localStorage.setItem('blockchains', JSON.stringify(blockchains));
 }
 
-async function loadPostsFromGitHub() {
+async function loadPostsFromGitHub(repoOwner, repoName, accessToken) {
     try {
         const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues?state=all`, {
             headers: {
@@ -89,7 +88,24 @@ async function loadPostsFromGitHub() {
 
         const allPosts = [];
         for (const issue of issues) {
-            const postData = { title: issue.title, content: issue.body, likes: 0, comments: [], author: generateRandomHash(), issueNumber: issue.number };
+            const postData = { 
+                title: issue.title, 
+                content: issue.body.split('\n\n**Likes:** ')[0], 
+                likes: issue.body.match(/\*\*Likes:\*\* (\d+)/)?.[1] ? parseInt(issue.body.match(/\*\*Likes:\*\* (\d+)/)[1]) : 0, 
+                comments: [], 
+                author: generateRandomHash(), 
+                issueNumber: issue.number 
+            };
+
+            // Fetch comments for each issue
+            const commentsResponse = await fetch(issue.comments_url, {
+                headers: {
+                    Authorization: `token ${accessToken}`
+                }
+            });
+            const comments = await commentsResponse.json();
+            postData.comments = comments.map(comment => comment.body);
+
             const blockchainKey = generateRandomHash();
             const newBlockchain = new Blockchain();
             const newBlock = new Block(newBlockchain.chain.length, Date.now(), postData);
@@ -121,11 +137,11 @@ function renderPosts(posts) {
             <h2>${escapeHtml(post.title)}</h2>
             <p>${escapeHtml(post.content)}</p>
             <p>Author: ${escapeHtml(post.author)}</p>
-            <button onclick="likePost('${encodeURIComponent(JSON.stringify(post))}')">Like (${post.likes})</button>
+            <button onclick="likePost('${encodeURIComponent(JSON.stringify(post))}', '${encodeURIComponent(JSON.stringify({ repoOwner, repoName, accessToken }))}')">Like (${post.likes})</button>
             <div class="comments">
                 ${post.comments.map(comment => `<div class="comment">${escapeHtml(comment)}</div>`).join('')}
                 <input type="text" id="comment-input-${encodeURIComponent(JSON.stringify(post))}" placeholder="Add a comment...">
-                <button onclick="addComment('${encodeURIComponent(JSON.stringify(post))}')">Comment</button>
+                <button onclick="addComment('${encodeURIComponent(JSON.stringify(post))}', '${encodeURIComponent(JSON.stringify({ repoOwner, repoName, accessToken }))}')">Comment</button>
             </div>
         `;
 
@@ -133,8 +149,11 @@ function renderPosts(posts) {
     });
 }
 
-async function likePost(encodedPostData) {
+async function likePost(encodedPostData, encodedAuthData) {
     const postData = JSON.parse(decodeURIComponent(encodedPostData));
+    const authData = JSON.parse(decodeURIComponent(encodedAuthData));
+    const { repoOwner, repoName, accessToken } = authData;
+
     const blockchains = loadBlockchainsFromLocalStorage();
 
     if (!blockchains[postData.blockchainKey]) {
@@ -161,11 +180,14 @@ async function likePost(encodedPostData) {
         console.error('Error updating GitHub Issue with like count:', error);
     }
 
-    loadPostsFromGitHub();
+    loadPostsFromGitHub(repoOwner, repoName, accessToken);
 }
 
-async function addComment(encodedPostData) {
+async function addComment(encodedPostData, encodedAuthData) {
     const postData = JSON.parse(decodeURIComponent(encodedPostData));
+    const authData = JSON.parse(decodeURIComponent(encodedAuthData));
+    const { repoOwner, repoName, accessToken } = authData;
+
     const commentInputId = `comment-input-${encodeURIComponent(JSON.stringify(postData))}`;
     const commentText = document.getElementById(commentInputId).value;
 
@@ -200,7 +222,7 @@ async function addComment(encodedPostData) {
         console.error('Error adding comment to GitHub Issue:', error);
     }
 
-    loadPostsFromGitHub();
+    loadPostsFromGitHub(repoOwner, repoName, accessToken);
 }
 
 function updatePostLikes(blockchains, blockchainKey, postData) {
@@ -253,7 +275,7 @@ function recalculateHashes(blockchain, startIndex) {
     }
 }
 
-async function filterPostsByKeyword(keyword) {
+async function filterPostsByKeyword(repoOwner, repoName, accessToken, keyword) {
     try {
         const response = await fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(keyword)}+repo:${repoOwner}/${repoName}&type=issue`, {
             headers: {
@@ -265,14 +287,30 @@ async function filterPostsByKeyword(keyword) {
 
         const allPosts = [];
         for (const issue of issues) {
-            const postData = { title: issue.title, content: issue.body, likes: 0, comments: [], author: generateRandomHash(), issueNumber: issue.number };
+            const postData = { 
+                title: issue.title, 
+                content: issue.body.split('\n\n**Likes:** ')[0], 
+                likes: issue.body.match(/\*\*Likes:\*\* (\d+)/)?.[1] ? parseInt(issue.body.match(/\*\*Likes:\*\* (\d+)/)[1]) : 0, 
+                comments: [], 
+                author: generateRandomHash(), 
+                issueNumber: issue.number 
+            };
+
+            // Fetch comments for each issue
+            const commentsResponse = await fetch(issue.comments_url, {
+                headers: {
+                    Authorization: `token ${accessToken}`
+                }
+            });
+            const comments = await commentsResponse.json();
+            postData.comments = comments.map(comment => comment.body);
+
             allPosts.push(postData);
         }
 
-        return allPosts;
+        renderPosts(allPosts);
     } catch (error) {
         console.error('Error filtering posts by keyword:', error);
-        return [];
     }
 }
 
@@ -291,7 +329,7 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-async function createGitHubIssue(title, content) {
+async function createGitHubIssue(repoOwner, repoName, accessToken, title, content) {
     try {
         const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues`, {
             method: 'POST',
@@ -303,7 +341,14 @@ async function createGitHubIssue(title, content) {
         });
         const issue = await response.json();
 
-        const postData = { title: issue.title, content: issue.body, likes: 0, comments: [], author: generateRandomHash(), issueNumber: issue.number };
+        const postData = { 
+            title: issue.title, 
+            content: issue.body, 
+            likes: 0, 
+            comments: [], 
+            author: generateRandomHash(), 
+            issueNumber: issue.number 
+        };
         const blockchainKey = generateRandomHash();
         const newBlockchain = new Blockchain();
         const newBlock = new Block(newBlockchain.chain.length, Date.now(), postData);
