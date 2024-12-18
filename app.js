@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const repoOwner = 'ling23-i';
+    const repoName = 'platform';
+    const accessToken = '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'; // You need to generate a personal access token with read/write access to issues.
+
     let blockchains = loadBlockchainsFromLocalStorage();
 
     // Handle new post form submission
@@ -11,17 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log('New Post Data:', { title, content }); // Debugging line
 
-            const postData = { title, content, likes: 0, comments: [], author: generateRandomHash() };
-            const newBlockchain = new Blockchain();
-            const newBlock = new Block(newBlockchain.chain.length, Date.now(), postData);
-            newBlockchain.addBlock(newBlock);
-
-            blockchains[generateRandomHash()] = newBlockchain;
-            saveBlockchainsToLocalStorage(blockchains);
-
-            console.log('Blockchains after adding new post:', blockchains); // Debugging line
-            alert('Post submitted successfully!');
-            window.location.href = 'community.html';
+            createGitHubIssue(title, content);
         });
     } else {
         console.error('Form element with id "new-post-form" not found.');
@@ -29,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load posts on community page
     if (window.location.pathname.includes('community.html')) {
-        loadPosts();
+        loadPostsFromGitHub();
     }
 
     // Handle search form submission
@@ -84,16 +78,33 @@ function saveBlockchainsToLocalStorage(blockchains) {
     localStorage.setItem('blockchains', JSON.stringify(blockchains));
 }
 
-function loadPosts() {
-    const blockchains = loadBlockchainsFromLocalStorage();
-    console.log('Loaded Blockchains:', blockchains); // Debugging line
+async function loadPostsFromGitHub() {
+    try {
+        const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues?state=all`, {
+            headers: {
+                Authorization: `token ${accessToken}`
+            }
+        });
+        const issues = await response.json();
 
-    const allPosts = [];
-    for (const key in blockchains) {
-        allPosts.push(blockchains[key].chain.slice(1).map(block => ({ ...block.data, blockchainKey: key })));
+        const allPosts = [];
+        for (const issue of issues) {
+            const postData = { title: issue.title, content: issue.body, likes: 0, comments: [], author: generateRandomHash(), issueNumber: issue.number };
+            const blockchainKey = generateRandomHash();
+            const newBlockchain = new Blockchain();
+            const newBlock = new Block(newBlockchain.chain.length, Date.now(), postData);
+            newBlockchain.addBlock(newBlock);
+
+            blockchains[blockchainKey] = newBlockchain;
+            saveBlockchainsToLocalStorage(blockchains);
+
+            allPosts.push(postData);
+        }
+
+        renderPosts(allPosts);
+    } catch (error) {
+        console.error('Error loading posts from GitHub:', error);
     }
-
-    renderPosts(allPosts.flat());
 }
 
 function renderPosts(posts) {
@@ -122,7 +133,7 @@ function renderPosts(posts) {
     });
 }
 
-function likePost(encodedPostData) {
+async function likePost(encodedPostData) {
     const postData = JSON.parse(decodeURIComponent(encodedPostData));
     const blockchains = loadBlockchainsFromLocalStorage();
 
@@ -134,10 +145,26 @@ function likePost(encodedPostData) {
     const updatedBlockchain = updatePostLikes(blockchains, postData.blockchainKey, postData);
     saveBlockchainsToLocalStorage(updatedBlockchain);
 
-    loadPosts();
+    // Update GitHub Issue with like count
+    try {
+        await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues/${postData.issueNumber}`, {
+            method: 'PATCH',
+            headers: {
+                Authorization: `token ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                body: `${postData.content}\n\n**Likes:** ${updatedBlockchain[postData.blockchainKey].chain[1].data.likes}`
+            })
+        });
+    } catch (error) {
+        console.error('Error updating GitHub Issue with like count:', error);
+    }
+
+    loadPostsFromGitHub();
 }
 
-function addComment(encodedPostData) {
+async function addComment(encodedPostData) {
     const postData = JSON.parse(decodeURIComponent(encodedPostData));
     const commentInputId = `comment-input-${encodeURIComponent(JSON.stringify(postData))}`;
     const commentText = document.getElementById(commentInputId).value;
@@ -158,7 +185,22 @@ function addComment(encodedPostData) {
     saveBlockchainsToLocalStorage(updatedBlockchain);
 
     document.getElementById(commentInputId).value = '';
-    loadPosts();
+    
+    // Add comment to GitHub Issue
+    try {
+        await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues/${postData.issueNumber}/comments`, {
+            method: 'POST',
+            headers: {
+                Authorization: `token ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ body: commentText })
+        });
+    } catch (error) {
+        console.error('Error adding comment to GitHub Issue:', error);
+    }
+
+    loadPostsFromGitHub();
 }
 
 function updatePostLikes(blockchains, blockchainKey, postData) {
@@ -211,18 +253,27 @@ function recalculateHashes(blockchain, startIndex) {
     }
 }
 
-function filterPostsByKeyword(keyword) {
-    const blockchains = loadBlockchainsFromLocalStorage();
+async function filterPostsByKeyword(keyword) {
+    try {
+        const response = await fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(keyword)}+repo:${repoOwner}/${repoName}&type=issue`, {
+            headers: {
+                Authorization: `token ${accessToken}`
+            }
+        });
+        const result = await response.json();
+        const issues = result.items;
 
-    const allPosts = [];
-    for (const key in blockchains) {
-        allPosts.push(blockchains[key].chain.slice(1).map(block => ({ ...block.data, blockchainKey: key })));
+        const allPosts = [];
+        for (const issue of issues) {
+            const postData = { title: issue.title, content: issue.body, likes: 0, comments: [], author: generateRandomHash(), issueNumber: issue.number };
+            allPosts.push(postData);
+        }
+
+        return allPosts;
+    } catch (error) {
+        console.error('Error filtering posts by keyword:', error);
+        return [];
     }
-
-    return allPosts.flat().filter(post => 
-        escapeHtml(post.title.toLowerCase()).includes(keyword) || 
-        escapeHtml(post.content.toLowerCase()).includes(keyword)
-    );
 }
 
 function generateRandomHash() {
@@ -238,4 +289,32 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+async function createGitHubIssue(title, content) {
+    try {
+        const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues`, {
+            method: 'POST',
+            headers: {
+                Authorization: `token ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title, body: content })
+        });
+        const issue = await response.json();
+
+        const postData = { title: issue.title, content: issue.body, likes: 0, comments: [], author: generateRandomHash(), issueNumber: issue.number };
+        const blockchainKey = generateRandomHash();
+        const newBlockchain = new Blockchain();
+        const newBlock = new Block(newBlockchain.chain.length, Date.now(), postData);
+        newBlockchain.addBlock(newBlock);
+
+        blockchains[blockchainKey] = newBlockchain;
+        saveBlockchainsToLocalStorage(blockchains);
+
+        alert('Post submitted successfully!');
+        window.location.href = 'community.html';
+    } catch (error) {
+        console.error('Error creating GitHub Issue:', error);
+    }
 }
