@@ -1,8 +1,5 @@
-const GITHUB_API_URL = 'https://api.github.com/repos/ling23-i/platform/issues';
-const GITHUB_TOKEN = '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'; // 注意：不要在生产环境中这样做
-
 document.addEventListener('DOMContentLoaded', () => {
-    loadPosts();
+    let blockchains = loadBlockchainsFromLocalStorage();
 
     // Handle new post form submission
     const formElement = document.getElementById('new-post-form');
@@ -15,15 +12,16 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('New Post Data:', { title, content }); // Debugging line
 
             const postData = { title, content, likes: 0, comments: [], author: generateRandomHash() };
-            createIssue(postData)
-                .then(() => {
-                    alert('Post submitted successfully!');
-                    window.location.href = 'community.html';
-                })
-                .catch(error => {
-                    console.error('Error creating issue:', error);
-                    alert('Failed to submit post.');
-                });
+            const newBlockchain = new Blockchain();
+            const newBlock = new Block(newBlockchain.chain.length, Date.now(), postData);
+            newBlockchain.addBlock(newBlock);
+
+            blockchains[generateRandomHash()] = newBlockchain;
+            saveBlockchainsToLocalStorage(blockchains);
+
+            console.log('Blockchains after adding new post:', blockchains); // Debugging line
+            alert('Post submitted successfully!');
+            window.location.href = 'community.html';
         });
     } else {
         console.error('Form element with id "new-post-form" not found.');
@@ -40,51 +38,62 @@ document.addEventListener('DOMContentLoaded', () => {
         searchFormElement.addEventListener('submit', function(event) {
             event.preventDefault();
             const keyword = document.getElementById('search-keyword').value.toLowerCase();
-            filterPostsByKeyword(keyword);
+            const filteredPosts = filterPostsByKeyword(keyword);
+            renderPosts(filteredPosts);
         });
     } else {
         console.error('Search form element with id "search-form" not found.');
     }
 });
 
-async function createIssue(data) {
-    const response = await fetch(GITHUB_API_URL, {
-        method: 'POST',
-        headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            title: data.title,
-            body: JSON.stringify({ content: data.content, likes: data.likes, comments: data.comments, author: data.author })
-        })
-    });
+function loadBlockchainsFromLocalStorage() {
+    const blockchainsData = localStorage.getItem('blockchains');
+    let blockchains = {};
+    if (blockchainsData) {
+        try {
+            const parsedData = JSON.parse(blockchainsData);
+            for (const key in parsedData) {
+                blockchains[key] = new Blockchain();
+                blockchains[key].chain = parsedData[key].chain.map((blockData, index) => {
+                    if (index === 0) {
+                        return blockchains[key].createGenesisBlock(); // Ensure genesis block is correctly created
+                    }
+                    return new Block(
+                        blockData.index,
+                        blockData.timestamp,
+                        blockData.data,
+                        '' // Initialize previousHash as empty string temporarily
+                    );
+                });
 
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+                // Re-calculate hashes to ensure integrity
+                for (let i = 1; i < blockchains[key].chain.length; i++) {
+                    blockchains[key].chain[i].previousHash = blockchains[key].chain[i - 1].hash;
+                    blockchains[key].chain[i].hash = blockchains[key].chain[i].calculateHash();
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing blockchains data from localStorage:', error);
+            blockchains = {}; // Fallback to an empty object
+        }
     }
-
-    return response.json();
+    return blockchains;
 }
 
-async function loadPosts() {
-    const response = await fetch(GITHUB_API_URL, {
-        headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`
-        }
-    });
+function saveBlockchainsToLocalStorage(blockchains) {
+    localStorage.setItem('blockchains', JSON.stringify(blockchains));
+}
 
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+function loadPosts() {
+    const blockchains = loadBlockchainsFromLocalStorage();
+    console.log('Loaded Blockchains:', blockchains); // Debugging line
+
+    const allPosts = [];
+    for (const key in blockchains) {
+        allPosts.push(blockchains[key].chain.slice(1).map(block => ({ ...block.data, blockchainKey: key })));
     }
 
-    const issues = await response.json();
-    const posts = issues.map(issue => ({
-        title: issue.title,
-        ...JSON.parse(issue.body)
-    }));
-
-    renderPosts(posts);
+    renderPosts(allPosts.flat());
 }
 
 function renderPosts(posts) {
@@ -98,12 +107,12 @@ function renderPosts(posts) {
         postElement.className = 'post';
 
         postElement.innerHTML = `
-            <h2>${post.title}</h2>
-            <p>${post.content}</p>
-            <p>Author: ${post.author}</p>
+            <h2>${escapeHtml(post.title)}</h2>
+            <p>${escapeHtml(post.content)}</p>
+            <p>Author: ${escapeHtml(post.author)}</p>
             <button onclick="likePost('${encodeURIComponent(JSON.stringify(post))}')">Like (${post.likes})</button>
             <div class="comments">
-                ${post.comments.map(comment => `<div class="comment">${comment}</div>`).join('')}
+                ${post.comments.map(comment => `<div class="comment">${escapeHtml(comment)}</div>`).join('')}
                 <input type="text" id="comment-input-${encodeURIComponent(JSON.stringify(post))}" placeholder="Add a comment...">
                 <button onclick="addComment('${encodeURIComponent(JSON.stringify(post))}')">Comment</button>
             </div>
@@ -113,22 +122,22 @@ function renderPosts(posts) {
     });
 }
 
-async function likePost(encodedPostData) {
+function likePost(encodedPostData) {
     const postData = JSON.parse(decodeURIComponent(encodedPostData));
-    const issueNumber = findIssueNumberByTitle(postData.title);
+    const blockchains = loadBlockchainsFromLocalStorage();
 
-    if (!issueNumber) {
-        console.error('Issue not found.');
+    if (!blockchains[postData.blockchainKey]) {
+        console.error('Blockchain not found for the given post.');
         return;
     }
 
-    const updatedPostData = { ...postData, likes: postData.likes + 1 };
+    const updatedBlockchain = updatePostLikes(blockchains, postData.blockchainKey, postData);
+    saveBlockchainsToLocalStorage(updatedBlockchain);
 
-    await updateIssue(issueNumber, updatedPostData);
     loadPosts();
 }
 
-async function addComment(encodedPostData) {
+function addComment(encodedPostData) {
     const postData = JSON.parse(decodeURIComponent(encodedPostData));
     const commentInputId = `comment-input-${encodeURIComponent(JSON.stringify(postData))}`;
     const commentText = document.getElementById(commentInputId).value;
@@ -138,62 +147,97 @@ async function addComment(encodedPostData) {
         return;
     }
 
-    const issueNumber = findIssueNumberByTitle(postData.title);
+    const blockchains = loadBlockchainsFromLocalStorage();
 
-    if (!issueNumber) {
-        console.error('Issue not found.');
+    if (!blockchains[postData.blockchainKey]) {
+        console.error('Blockchain not found for the given post.');
         return;
     }
 
-    const updatedPostData = { ...postData, comments: [...postData.comments, commentText] };
+    const updatedBlockchain = updatePostComments(blockchains, postData.blockchainKey, postData, commentText);
+    saveBlockchainsToLocalStorage(updatedBlockchain);
 
-    await updateIssue(issueNumber, updatedPostData);
     document.getElementById(commentInputId).value = '';
     loadPosts();
 }
 
-async function updateIssue(issueNumber, postData) {
-    const response = await fetch(`${GITHUB_API_URL}/${issueNumber}`, {
-        method: 'PATCH',
-        headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            body: JSON.stringify(postData)
-        })
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+function updatePostLikes(blockchains, blockchainKey, postData) {
+    const blockchain = blockchains[blockchainKey];
+    const index = findPostIndex(blockchain, postData);
+    if (index === -1) {
+        console.error('Post not found in blockchain.');
+        return blockchains;
     }
 
-    return response.json();
+    blockchain.chain[index].data.likes++;
+    blockchain.chain[index].hash = blockchain.chain[index].calculateHash();
+
+    // Recalculate hashes for subsequent blocks
+    recalculateHashes(blockchain, index);
+
+    return blockchains;
 }
 
-function findIssueNumberByTitle(title) {
-    // This function should ideally fetch all issues and map titles to their numbers.
-    // For simplicity, we'll assume the title is unique and directly match an issue.
-    // In practice, you might need to store this mapping in your database or another way.
-    // Here's a simple example assuming you have access to all issues:
-    return loadPosts().then(issues => {
-        const issue = issues.find(i => i.title === title);
-        return issue ? issue.number : null;
-    });
+function updatePostComments(blockchains, blockchainKey, postData, comment) {
+    const blockchain = blockchains[blockchainKey];
+    const index = findPostIndex(blockchain, postData);
+    if (index === -1) {
+        console.error('Post not found in blockchain.');
+        return blockchains;
+    }
+
+    blockchain.chain[index].data.comments.push(comment);
+    blockchain.chain[index].hash = blockchain.chain[index].calculateHash();
+
+    // Recalculate hashes for subsequent blocks
+    recalculateHashes(blockchain, index);
+
+    return blockchains;
+}
+
+function findPostIndex(blockchain, postData) {
+    for (let i = 1; i < blockchain.chain.length; i++) {
+        if (blockchain.chain[i].data.title === postData.title && blockchain.chain[i].data.content === postData.content) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+function recalculateHashes(blockchain, startIndex) {
+    for (let i = startIndex + 1; i < blockchain.chain.length; i++) {
+        blockchain.chain[i].previousHash = blockchain.chain[i - 1].hash;
+        blockchain.chain[i].hash = blockchain.chain[i].calculateHash();
+    }
 }
 
 function filterPostsByKeyword(keyword) {
-    loadPosts().then(posts => {
-        const filteredPosts = posts.filter(post =>
-            post.title.toLowerCase().includes(keyword) || post.content.toLowerCase().includes(keyword)
-        );
-        renderPosts(filteredPosts);
-    });
+    const blockchains = loadBlockchainsFromLocalStorage();
+
+    const allPosts = [];
+    for (const key in blockchains) {
+        allPosts.push(blockchains[key].chain.slice(1).map(block => ({ ...block.data, blockchainKey: key })));
+    }
+
+    return allPosts.flat().filter(post => 
+        escapeHtml(post.title.toLowerCase()).includes(keyword) || 
+        escapeHtml(post.content.toLowerCase()).includes(keyword)
+    );
 }
 
 function generateRandomHash() {
     return CryptoJS.SHA256(Math.random().toString()).toString();
 }
 
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
 
 
