@@ -1,6 +1,5 @@
 const GITHUB_API_URL = 'https://api.github.com/repos/ling23-i/platform/issues';
 const GITHUB_TOKEN = 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; // 替换为您的 GitHub Token
-
 document.addEventListener('DOMContentLoaded', () => {
     loadPosts();
 
@@ -48,48 +47,57 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function createIssue(data) {
-    const response = await fetch(GITHUB_API_URL, {
-        method: 'POST',
-        headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            title: data.title,
-            body: JSON.stringify({ content: data.content, likes: data.likes, comments: data.comments, author: data.author })
-        })
-    });
+    try {
+        const response = await fetch(GITHUB_API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: data.title,
+                body: JSON.stringify({ content: data.content, likes: data.likes, comments: data.comments, author: data.author })
+            })
+        });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error creating issue:', response.status, errorText);
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error creating issue:', response.status, errorText);
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+
+        return response.json(); // Ensure this return is valid
+    } catch (error) {
+        console.error('Error in createIssue:', error);
+        throw error; // Re-throw the error for further handling
     }
-
-    return response.json();
 }
 
 async function loadPosts() {
-    const response = await fetch(GITHUB_API_URL, {
-        headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`
+    try {
+        const response = await fetch(GITHUB_API_URL, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error loading posts:', response.status, errorText);
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
-    });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error loading posts:', response.status, errorText);
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        const issues = await response.json();
+        const posts = issues.map(issue => ({
+            number: issue.number,
+            title: issue.title,
+            ...JSON.parse(issue.body)
+        }));
+
+        renderPosts(posts);
+    } catch (error) {
+        console.error('Error in loadPosts:', error);
     }
-
-    const issues = await response.json();
-    const posts = issues.map(issue => ({
-        number: issue.number,
-        title: issue.title,
-        ...JSON.parse(issue.body)
-    }));
-
-    renderPosts(posts);
 }
 
 function renderPosts(posts) {
@@ -228,6 +236,10 @@ async function addComment(issueNumber) {
 function generateRandomHash() {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
+
+
+
+
 
 
 
