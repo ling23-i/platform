@@ -1,5 +1,5 @@
-const GITHUB_API_URL = 'https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO_NAME/issues';
-const GITHUB_TOKEN = 'YOUR_GITHUB_TOKEN'; // 替换为您的 GitHub Token
+const GITHUB_API_URL = 'https://api.github.com/repos/ling23-i/platform/issues';
+const GITHUB_TOKEN = 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; // 替换为您的 GitHub Token
 
 document.addEventListener('DOMContentLoaded', () => {
     loadPosts();
